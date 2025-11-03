@@ -1,0 +1,172 @@
+import re
+
+# --- Configuration for your specific request ---
+KEY = "OCTOBER"
+# I will use 'GEMINI' as the plaintext, but you can change this to your name!
+PLAINTEXT = "ARYAN"
+# ----------------------------------------------
+
+def generate_key_square(key):
+    """
+    Generates the 5x5 Playfair Key Square matrix.
+    'J' is replaced with 'I'.
+    """
+    key = key.upper().replace('J', 'I')
+    alphabet = "ABCDEFGHIKLMNOPQRSTUVWXYZ" # J is skipped
+    
+    # Remove duplicate letters from the key
+    key_chars = []
+    for char in key:
+        if char not in key_chars and char in alphabet:
+            key_chars.append(char)
+            
+    # Add remaining letters of the alphabet
+    for char in alphabet:
+        if char not in key_chars:
+            key_chars.append(char)
+
+    # Create the 5x5 matrix
+    matrix = []
+    for i in range(0, 25, 5):
+        matrix.append(key_chars[i:i+5])
+        
+    # Create a reverse mapping (char -> (row, col)) for quick lookups
+    char_to_coords = {}
+    for r in range(5):
+        for c in range(5):
+            char_to_coords[matrix[r][c]] = (r, c)
+            
+    return matrix, char_to_coords
+
+def preprocess_plaintext(plaintext):
+    """
+    Prepares the plaintext for encryption:
+    1. Converts to uppercase and removes non-alphabetic characters.
+    2. Replaces 'J' with 'I'.
+    3. Splits into digraphs (pairs), adding 'X' for double letters and padding the end if necessary.
+    """
+    plaintext = re.sub(r'[^A-Za-z]', '', plaintext).upper().replace('J', 'I')
+    digraphs = []
+    i = 0
+    while i < len(plaintext):
+        char1 = plaintext[i]
+        
+        # Check if we are at the end of the text
+        if i + 1 == len(plaintext):
+            char2 = 'X' # Pad with 'X'
+            i += 1
+        else:
+            char2 = plaintext[i+1]
+            
+            # Check for double letters
+            if char1 == char2:
+                char2 = 'X' # Substitute the second duplicate with 'X'
+                i += 1
+            else:
+                i += 2
+        
+        digraphs.append(char1 + char2)
+        
+    return digraphs
+
+def encrypt(digraphs, matrix, char_to_coords):
+    """
+    Encrypts the list of digraphs based on the Playfair rules.
+    """
+    ciphertext = ""
+    
+    for pair in digraphs:
+        c1, c2 = pair[0], pair[1]
+        
+        r1, c_1 = char_to_coords[c1]
+        r2, c_2 = char_to_coords[c2]
+        
+        new_c1, new_c2 = '', ''
+
+        # 1. Same Row Rule
+        if r1 == r2:
+            # Shift right by one (wrap around)
+            new_c1 = matrix[r1][(c_1 + 1) % 5]
+            new_c2 = matrix[r2][(c_2 + 1) % 5]
+            
+        # 2. Same Column Rule
+        elif c_1 == c_2:
+            # Shift down by one (wrap around)
+            new_c1 = matrix[(r1 + 1) % 5][c_1]
+            new_c2 = matrix[(r2 + 1) % 5][c_2]
+            
+        # 3. Rectangle Rule
+        else:
+            # Take the column of the other character
+            new_c1 = matrix[r1][c_2]
+            new_c2 = matrix[r2][c_1]
+            
+        ciphertext += new_c1 + new_c2
+        
+    return ciphertext
+
+def decrypt(ciphertext, matrix, char_to_coords):
+    """
+    Decrypts the ciphertext based on the Playfair rules (reverse of encryption).
+    Note: The decryption output may contain padding 'X's that might need manual removal.
+    """
+    plaintext_out = ""
+    
+    # Group ciphertext into digraphs
+    digraphs = [ciphertext[i:i+2] for i in range(0, len(ciphertext), 2)]
+    
+    for pair in digraphs:
+        c1, c2 = pair[0], pair[1]
+        
+        r1, c_1 = char_to_coords[c1]
+        r2, c_2 = char_to_coords[c2]
+        
+        new_c1, new_c2 = '', ''
+
+        # 1. Same Row Rule
+        if r1 == r2:
+            # Shift LEFT by one (wrap around)
+            new_c1 = matrix[r1][(c_1 - 1) % 5]
+            new_c2 = matrix[r2][(c_2 - 1) % 5]
+            
+        # 2. Same Column Rule
+        elif c_1 == c_2:
+            # Shift UP by one (wrap around)
+            new_c1 = matrix[(r1 - 1) % 5][c_1]
+            new_c2 = matrix[(r2 - 1) % 5][c_2]
+            
+        # 3. Rectangle Rule (Same as encryption - just swap columns)
+        else:
+            new_c1 = matrix[r1][c_2]
+            new_c2 = matrix[r2][c_1]
+            
+        plaintext_out += new_c1 + new_c2
+        
+    return plaintext_out
+
+def run_playfair_cipher():
+    """
+    Main function to run the cipher and display output.
+    """
+    key_square, char_to_coords = generate_key_square(KEY)
+    digraphs = preprocess_plaintext(PLAINTEXT)
+    
+    # Perform Encryption
+    encrypted_text = encrypt(digraphs, key_square, char_to_coords)
+    
+    # Perform Decryption
+    decrypted_text = decrypt(encrypted_text, key_square, char_to_coords)
+
+    # --- Print Output in Requested Format ---
+    
+    print(f"Enter the key/keyword for the Playfair cipher: {KEY}")
+    print(f"Enter the plaintext (without spaces): {PLAINTEXT}")
+    print(f"Encrypted Text: {encrypted_text}")
+    print(f"Decrypted Text: {decrypted_text}")
+    print("\nPlayfair Cipher Matrix (Key Square):")
+    
+    for row in key_square:
+        print(" ".join(row))
+
+if __name__ == "__main__":
+    run_playfair_cipher()
